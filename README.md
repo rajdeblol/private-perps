@@ -1,137 +1,101 @@
 # 🔐 Private Perps
 
-**Privacy-preserving perpetuals trading on Solana using Arcium MPC.**
+perps trading, but your positions are actually private. built on solana + arcium MPC.
 
-> Trade without revealing your hand. Your positions, entries, and leverage stay encrypted end-to-end.
+the idea is simple — on every other perps dex, your positions, entries, leverage are all visible on-chain. that means:
+- MEV bots front-run you
+- people copy-trade your entries
+- liquidation bots target your exact threshold
+
+**private perps fixes this.** everything is encrypted before it hits the chain. nobody sees what you're trading.
 
 ---
 
-## What is Private Perps?
+## how it works
 
-Private Perps is a perpetuals (perps) trading protocol where **trader intent stays private**. Traditional perps expose positions and orders on-chain — enabling front-running, copy-trading, and targeted liquidations. Private Perps eliminates these adversarial behaviors using Arcium's Multi-Party Computation (MPC) network:
+your browser encrypts the trade data locally (x25519 key exchange + RescueCipher). the encrypted blob goes to a solana program that queues it for arcium's MPC network. multiple nodes compute on the encrypted data — none of them see plaintext. when you close a position, only the final PnL gets decrypted back to you.
 
-- **Positions are submitted encrypted** — size, entry price, and leverage never appear on-chain in cleartext
-- **Liquidation checks run inside MPC** — only a boolean "safe/at-risk" is revealed, never the threshold
-- **PnL is computed privately** — only the final realized profit/loss is decrypted when a position closes
-- **No single party sees your data** — Arcium distributes computation across multiple nodes
-
-### How Arcium Provides Privacy
+thats it. no trust assumptions beyond honest-majority MPC (1 honest node out of 4 = you're safe).
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        CLIENT (Browser)                         │
-│                                                                 │
-│  1. Generate x25519 keypair                                     │
-│  2. Fetch MXE public key from Solana                            │
-│  3. Derive shared secret via ECDH                               │
-│  4. Encrypt inputs with RescueCipher                            │
-│  5. Submit encrypted data to Solana program                     │
-└─────────────────────────┬────────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                     SOLANA PROGRAM (Anchor)                      │
-│                                                                 │
-│  • Stores encrypted position bytes in PositionAccount           │
-│  • Queues computation via queue_computation()                   │
-│  • Routes results via callback instructions                     │
-│  • Emits events with encrypted ciphertexts                      │
-└─────────────────────────┬────────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    ARCIUM MPC NETWORK                            │
-│                                                                 │
-│  • 4+ nodes in the recovery set                                 │
-│  • Each node holds a share of the encrypted data                │
-│  • Computation happens on shares — no node sees plaintext       │
-│  • Results re-encrypted and sent back via callback              │
-│  • Honest-majority security guarantee                           │
-└──────────────────────────────────────────────────────────────────┘
+Browser (encrypt) → Solana Program (queue) → Arcium MPC (compute on ciphertexts) → Callback (result)
 ```
 
-### Architecture
+### what stays private
+- position size ✗ never revealed
+- entry price ✗ never revealed  
+- leverage ✗ never revealed
+- liquidation threshold ✗ only "safe" or "at risk" comes back
+- realized pnl ✓ revealed to you when you close
+
+---
+
+## project structure
 
 ```
 private-perps/
-├── encrypted-ixs/           ← Arcis MPC circuits (Rust)
-│   ├── open_position.rs     ← Encrypted position creation
-│   ├── check_liquidation.rs ← Private liquidation threshold check
-│   └── close_position.rs   ← Private PnL computation
-├── programs/
-│   └── private-perps/
-│       └── src/lib.rs       ← Anchor Solana program
+├── encrypted-ixs/            # arcis MPC circuits
+│   ├── open_position.rs      # creates encrypted position state
+│   ├── check_liquidation.rs  # private liq check (returns bool)
+│   └── close_position.rs     # computes PnL privately
+├── programs/private-perps/
+│   └── src/lib.rs            # anchor program — 10 instructions, callbacks, events
 ├── tests/
-│   └── private-perps.ts     ← Integration test suite
-└── app/                     ← Next.js 14 frontend
+│   └── private-perps.ts      # full integration test
+└── app/                      # next.js 14 frontend
     └── src/
-        ├── app/             ← Pages (landing, trade, positions, history)
-        ├── components/      ← UI components (TradeForm, PnlReveal, etc.)
-        ├── hooks/           ← React hooks (usePosition, usePnl, etc.)
-        ├── lib/             ← Core modules (arcium, encryption, prices)
-        └── types/           ← TypeScript type definitions
+        ├── app/              # pages (landing, trade, positions, history)
+        ├── components/       # TradeForm, PnlReveal, MpcStatus, etc
+        ├── hooks/            # usePosition, usePnl, useLiquidation
+        ├── lib/              # arcium client, encryption, prices
+        └── types/            # typescript types
 ```
 
 ---
 
-## Setup
+## getting started
 
-### Prerequisites
+### you'll need
+- rust 1.75+
+- solana cli 2.3.0 — `sh -c "$(curl -sSfL https://release.anza.xyz/v2.3.0/install)"`
+- anchor 0.32.1 — `cargo install --git https://github.com/coral-xyz/anchor anchor-cli --tag v0.32.1`
+- arcium cli — `cargo install arcium-cli`
+- node 18+
+- yarn
 
-- **Rust** (1.75+): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **Solana CLI** (2.3.0): `sh -c "$(curl -sSfL https://release.anza.xyz/v2.3.0/install)"`
-- **Anchor CLI** (0.32.1): `cargo install --git https://github.com/coral-xyz/anchor anchor-cli --tag v0.32.1`
-- **Arcium CLI**: `cargo install arcium-cli`
-- **Node.js** (18+): `https://nodejs.org`
-- **Yarn**: `npm install -g yarn`
-
-### 1. Clone & Install
+### setup
 
 ```bash
-git clone <repo-url> private-perps
+git clone https://github.com/rajdeblol/private-perps.git
 cd private-perps
-
-# Install root dependencies (tests)
 yarn install
 
-# Install frontend dependencies
 cd app && yarn install && cd ..
 ```
 
-### 2. Configure Solana
-
+configure solana for devnet:
 ```bash
-# Set to devnet
 solana config set --url https://api.devnet.solana.com
-
-# Create a keypair (if needed)
-solana-keygen new --outfile ~/.config/solana/id.json
-
-# Airdrop SOL for deployment
+solana-keygen new --outfile ~/.config/solana/id.json  # if you don't have one
 solana airdrop 5
 ```
 
-### 3. Configure Environment
-
+copy the env file and drop in your helius RPC key:
 ```bash
 cp app/.env.example app/.env.local
-# Edit app/.env.local with your Helius RPC URL
 ```
 
 ---
 
-## Build & Deploy
-
-### Build the Program
+## build & deploy
 
 ```bash
-# Build Arcis circuits + Anchor program
+# builds the arcis circuits + anchor program
 arcium build
 ```
 
-### Deploy to Devnet
-
 ```bash
+# deploy to devnet
 arcium deploy \
   --cluster-offset 456 \
   --recovery-set-size 4 \
@@ -139,95 +103,81 @@ arcium deploy \
   --rpc-url https://devnet.helius-rpc.com/?api-key=YOUR_KEY
 ```
 
-After deployment, update `NEXT_PUBLIC_PROGRAM_ID` in `app/.env.local` with the deployed program ID.
+after deploying, grab the program ID and update `NEXT_PUBLIC_PROGRAM_ID` in `app/.env.local`.
 
-### Initialize Computation Definitions
-
-After deployment, initialize the three computation definitions (one-time setup):
-
+then initialize the computation definitions (one-time thing):
 ```bash
-# Run via the test suite or a custom script
 npx ts-mocha -p ./tsconfig.json -t 1000000 tests/private-perps.ts --grep "init"
 ```
 
 ---
 
-## Run Tests
+## tests
 
 ```bash
-# Full integration test suite
 yarn test
-
-# Or directly:
-npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts
 ```
 
-The test suite covers:
-1. Protocol initialization
-2. Computation definition initialization (3 circuits)
-3. Opening an encrypted long position
-4. Checking liquidation risk
-5. Closing a position with PnL reveal
+covers the full loop:
+1. init protocol
+2. init comp defs for all 3 circuits
+3. open an encrypted long position
+4. check if it's liquidatable (spoiler: it's not)
+5. close position and reveal the PnL
 
 ---
 
-## Run Frontend
+## run the frontend
 
 ```bash
 cd app
 yarn dev
 ```
 
-Open `http://localhost:3000` in your browser.
+go to `http://localhost:3000`
 
-### Pages
+| page | what it does |
+|------|-------------|
+| `/` | landing — "trade without revealing your hand" |
+| `/trade` | open new positions (encrypted before submit) |
+| `/positions` | your open positions (size & entry stay hidden) |
+| `/history` | closed positions with revealed PnL |
 
-| Route | Description |
-|-------|-------------|
-| `/` | Landing page — "Trade without revealing your hand" |
-| `/trade` | Open new encrypted positions |
-| `/positions` | View open positions (size & entry hidden) |
-| `/history` | Closed positions with revealed P&L |
-
----
-
-## Deploy Frontend
-
+deploy to vercel:
 ```bash
-cd app
-# Deploy to Vercel
-npx vercel --prod
+cd app && npx vercel --prod
 ```
 
-Or connect the `app/` directory to Vercel via the dashboard.
+---
+
+## the circuits
+
+three MPC circuits handle the core logic:
+
+**open_position** — takes your encrypted side/size/entry/leverage → stores as `Enc<Mxe>` (only MPC can read it)
+
+**check_liquidation** — takes encrypted position + current price → returns `Enc<Shared>` boolean (you can decrypt: safe or not)
+
+**close_position** — takes encrypted position + exit price → returns `Enc<Shared>` PnL result (you decrypt the final number)
+
+the key distinction: `Enc<Mxe, T>` = only the MPC network can touch it. `Enc<Shared, T>` = you can decrypt it client-side with your key.
 
 ---
 
-## MPC Circuits
+## security
 
-| Circuit | Input | Output | Purpose |
-|---------|-------|--------|---------|
-| `open_position` | `Enc<Shared, PositionInput>` | `Enc<Mxe, PositionState>` | Creates encrypted position state |
-| `check_liquidation` | `Enc<Mxe, PositionState>` + `Enc<Shared, LiquidationInput>` | `Enc<Shared, LiquidationResult>` | Boolean liquidation check |
-| `close_position` | `Enc<Mxe, PositionState>` + `Enc<Shared, CloseInput>` | `Enc<Shared, PnlResult>` | Computes realized P&L |
-
-### Encryption Types
-
-- **`Enc<Shared, T>`**: Encrypted with a shared key between client and MXE — client can decrypt the output
-- **`Enc<Mxe, T>`**: Encrypted under the MXE key — only the MPC network can access it (position internals)
+- everything encrypted client-side before it leaves your browser
+- MPC nodes only see shares, never plaintext
+- honest-majority: privacy holds with just 1 honest node out of 4
+- on-chain = only ciphertexts, no cleartext position data
+- minimum reveal: liquidation = boolean, close = PnL amount. nothing else.
 
 ---
 
-## Security Model
+## stack
 
-- **Client-side encryption**: All sensitive data is encrypted before leaving the browser
-- **MPC computation**: No single node ever sees plaintext values
-- **Honest-majority guarantee**: Privacy holds as long as one node in the recovery set is honest
-- **On-chain ciphertexts**: Only encrypted bytes are stored on Solana — no cleartext position data
-- **Selective reveal**: Only the minimum necessary information is decrypted (boolean for liquidation, PnL for close)
+rust + anchor 0.32.1 · arcis circuits · solana devnet · next.js 14 · tailwind · typescript · jupiter price api · phantom/solflare/backpack wallet support
 
 ---
-
-## License
 
 MIT
