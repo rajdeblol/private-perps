@@ -1,0 +1,14 @@
+[arcium]
+name = "private-perps"
+version = "0.1.0"
+
+[cluster]
+offset = 456
+recovery_set_size = 4
+
+[encrypted_ixs]
+path = "encrypted-ixs"
+
+[program]
+path = "programs/private-perps"
+program_id = "PrivPerps1111111111111111111111111111111111"

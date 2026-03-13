@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* Dark theme color system */
+  --surface-50: 220 15% 92%;
+  --surface-100: 220 14% 82%;
+  --surface-200: 220 13% 69%;
+  --surface-300: 220 12% 55%;
+  --surface-400: 220 11% 42%;
+  --surface-500: 220 12% 30%;
+  --surface-600: 222 15% 20%;
+  --surface-700: 224 18% 14%;
+  --surface-800: 226 22% 10%;
+  --surface-900: 228 28% 6%;
+
+  /* Accent — electric indigo */
+  --accent: 245 85% 65%;
+  --accent-hover: 245 90% 70%;
+  --accent-muted: 245 50% 40%;
+
+  /* Semantic */
+  --profit: 152 69% 50%;
+  --loss: 0 72% 58%;
+  --neutral: 220 12% 55%;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background-color: hsl(228 28% 6%);
+  color: hsl(220 15% 92%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(226 22% 10%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(220 12% 30%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 12% 40%);
+}
+
+/* Selection */
+::selection {
+  background-color: hsl(245 85% 65% / 0.3);
+  color: white;
+}
+
+/* Wallet Adapter Modal Override */
+.wallet-adapter-modal-wrapper {
+  background-color: hsl(226 22% 10%) !important;
+  border: 1px solid hsl(220 12% 20%) !important;
+  border-radius: 1rem !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background-color: hsl(224 18% 14%) !important;
+}
+
+.wallet-adapter-button {
+  font-family: "Inter", system-ui, sans-serif !important;
+}
+
+/* Range input track styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    hsl(245 85% 65%),
+    hsl(245 85% 65%)
+  );
+  background-size: var(--range-progress, 10%) 100%;
+  background-repeat: no-repeat;
+  background-color: hsl(224 18% 14%);
+}

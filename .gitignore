@@ -1,0 +1,32 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Solana / Anchor
+.anchor/
+test-ledger/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Env
+.env
+.env.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/

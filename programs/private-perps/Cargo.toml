@@ -1,0 +1,21 @@
+[package]
+name = "private-perps"
+version = "0.1.0"
+description = "Privacy-preserving perpetuals trading on Solana using Arcium MPC"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "private_perps"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.32.1"
+arcium-anchor = { version = "0.2", features = ["cpi"] }
+arcium-macros = "0.2"
